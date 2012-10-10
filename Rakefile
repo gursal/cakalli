@@ -1,10 +1,10 @@
+require 'find'
 require 'open3'
 require 'rake/clean'
 
 Landslide = '/usr/bin/landslide'
 Css       = 'stylesheets/folio.css'
 Js        = 'javascripts/folio.js'
-Sources   = FileList['[^_]*/index.md']
 
 def colorize(text, color_code)
   "\033[1m\033[38;5;#{color_code}m#{text}\033[0m"
@@ -31,6 +31,7 @@ unless File.exist? Landslide
   abort
 end
 
+# Css and Js files are not mandatory.
 [Css, Js].each do |f|
   unless File.exists? f
     touch f
@@ -38,21 +39,35 @@ end
   end
 end
 
-destinations = []
+# Locate folio sources in the form of 'foo/bar/index.md'.
+Sources   = []
+FileList['[^_.]*'].select { |path| FileTest.directory?(path) }.each do |dir|
+  Find.find(dir) do |path|
+    basename = File.basename(path)
+    if FileTest.directory?(path)
+      Find.prune if %w(. _).any? { |prefix| basename[0] == prefix }
+    elsif basename == 'index.md' && File.open(path, &:readline).start_with?('#')
+      Sources << path
+    end
+  end
+end
 
+# Compute destinations and create a file task for each destination.
+Destinations = []
 Sources.each do |source|
-  destinations << (destination = source.ext('.html'))
+  Destinations << (destination = source.ext('.html'))
   directory = File.dirname source
+  label = directory
 
   file destination => [
     source,
     Css,
     Js,
-    *FileList["#{directory}/media/*"],
-    *FileList["#{directory}/code/*"],
+    *FileList["#{directory}/media/*"], # media files, i.e. images
+    *FileList["#{directory}/code/*"],  # code files
     Landslide
   ] do
-    $stderr.puts blue(directory)
+    $stderr.puts blue(label)
 
     run(*%W[
       #{Landslide}
@@ -73,8 +88,8 @@ Sources.each do |source|
 end
 
 desc 'Compile folios.'
-task :compile => destinations
+task :compile => Destinations
 
 task :default => :compile
 
-CLEAN.include destinations
+CLEAN.include Destinations
