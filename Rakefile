@@ -2,8 +2,8 @@ require 'open3'
 require 'rake/clean'
 
 Landslide = '/usr/bin/landslide'
-Css       = 'folio.css'
-Js        = 'folio.js'
+Css       = 'stylesheets/folio.css'
+Js        = 'javascripts/folio.js'
 Sources   = FileList['[^_]*/index.md']
 
 def colorize(text, color_code)
